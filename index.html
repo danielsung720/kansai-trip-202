@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>關西五日自由行・旅遊說明書</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#f6f4ef; --card:#ffffff; --ink:#2b2b2b; --muted:#7a756c;
+    --line:#e7e2d8; --accent:#c0392b; --accent2:#1f6f6b; --gold:#b8893b;
+    --shadow:0 2px 10px rgba(0,0,0,.06); --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Hiragino Sans","PingFang TC","Noto Sans TC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent2);text-decoration:none}
+  .wrap{max-width:760px;margin:0 auto;padding:0 16px 80px}
+
+  /* Header */
+  .hero{
+    background:
+      linear-gradient(135deg,rgba(232,99,90,.78) 0%,rgba(230,145,60,.55) 42%,rgba(138,107,191,.82) 100%),
+      url("https://images.unsplash.com/photo-1493997181344-712f2f19d87a?auto=format&fit=crop&w=1600&q=70") center 35%/cover no-repeat,
+      linear-gradient(135deg,#e8635a 0%,#8a6bbf 100%);
+    color:#fff;padding:34px 16px 26px;text-align:center;position:relative;overflow:hidden;
+  }
+  .hero h1,.hero .dates{text-shadow:0 2px 10px rgba(0,0,0,.45)}
+  .hero h1{margin:0;font-size:28px;letter-spacing:2px;font-weight:800}
+  .hero .dates{margin-top:6px;font-size:15px;opacity:.92;letter-spacing:1px}
+  .hero .hotel{
+    display:flex;gap:6px;align-items:center;width:fit-content;max-width:90%;margin:14px auto 0;
+    background:rgba(255,255,255,.15);padding:7px 14px;border-radius:999px;font-size:13.5px;
+  }
+  .hero .hotel a{color:#fff;text-decoration:underline}
+  /* 電子數字時鐘 */
+  .clock{
+    display:flex;flex-direction:column;align-items:center;width:fit-content;margin:14px auto 0;
+    background:rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.15);
+    border-radius:14px;padding:8px 22px;box-shadow:inset 0 0 14px rgba(0,0,0,.35)
+  }
+  .clock .time{
+    font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,"Courier New",monospace;
+    font-size:32px;font-weight:700;line-height:1.1;letter-spacing:3px;
+    color:#ffd23f;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 8px rgba(255,210,63,.7),0 0 2px rgba(255,210,63,.95)
+  }
+  .clock .date{font-size:12.5px;letter-spacing:2px;color:rgba(255,255,255,.85);margin-bottom:3px}
+
+  /* Status */
+  .status{
+    display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;
+    font-size:12px;color:var(--muted);padding:10px 16px;background:#efece4;border-bottom:1px solid var(--line)
+  }
+  .status .dot{width:8px;height:8px;border-radius:50%;background:#2e9e5b}
+  .status.offline .dot{background:var(--gold)}
+  .status button{
+    border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 12px;
+    font-size:12px;cursor:pointer;color:var(--ink)
+  }
+  .status button:active{transform:scale(.96)}
+
+  /* Nav */
+  nav.tabs{
+    position:sticky;top:0;z-index:20;background:rgba(246,244,239,.95);
+    backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid var(--line);
+    display:flex;gap:8px;justify-content:safe center;overflow-x:auto;padding:10px 16px;scrollbar-width:none
+  }
+  nav.tabs::-webkit-scrollbar{display:none}
+  nav.tabs a{
+    flex:0 0 auto;font-size:13px;font-weight:700;color:var(--muted);
+    background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;white-space:nowrap
+  }
+  nav.tabs a .d{display:block;font-size:10px;font-weight:600;opacity:.7;letter-spacing:.5px}
+  nav.tabs a.active{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  nav.tabs a.active .d{opacity:.85}
+  nav.tabs a.today::after{content:"今日";display:inline-block;margin-left:5px;font-size:9px;background:var(--accent);color:#fff;padding:0 5px;border-radius:6px;vertical-align:middle}
+
+  /* Single-page view：一次只顯示一個 page */
+  .page{display:none;animation:fade .25s ease}
+  .page.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* Hero image banner（每頁頂部大圖） */
+  .hero-img{
+    height:190px;border-radius:18px;margin:16px 0 18px;position:relative;overflow:hidden;
+    background:#ccc center/cover no-repeat;box-shadow:var(--shadow);display:flex;align-items:flex-end
+  }
+  .hero-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.68) 100%)}
+  .hero-img .cap{position:relative;z-index:1;color:#fff;padding:16px 18px}
+  .hero-img .cap .badge{display:inline-block;background:var(--day,var(--accent));font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 9px;border-radius:7px}
+  .hero-img .cap h2{margin:6px 0 0;font-size:22px;font-weight:800;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+
+  /* Day section */
+  section{scroll-margin-top:64px}
+  .day-head{display:flex;align-items:baseline;gap:10px;margin:0 2px 4px}
+  .day-badge{
+    background:var(--accent);color:#fff;font-weight:800;font-size:12px;
+    padding:4px 10px;border-radius:8px;letter-spacing:1px;white-space:nowrap
+  }
+  .day-head h2{margin:0;font-size:19px;font-weight:800}
+  .summary{
+    margin:0 2px 16px;color:#5a544b;font-size:13.5px;font-weight:600;line-height:1.7;
+    background:#fff;
+    background:color-mix(in srgb, var(--day,var(--accent2)) 9%, #fff);
+    border:1px solid var(--line);border-left:5px solid var(--day,var(--accent2));
+    border-radius:12px;padding:10px 14px
+  }
+  .summary .summary-label{
+    display:inline-block;background:var(--day,var(--accent2));color:#fff;
+    font-size:11px;font-weight:800;letter-spacing:1px;padding:2px 9px;border-radius:7px;margin-right:8px
+  }
+
+  /* Timeline */
+  .tl{position:relative;margin-left:6px;padding-left:18px;
+    border-left:2px solid var(--line);
+    border-left:2px solid color-mix(in srgb, var(--day,var(--accent2)) 35%, var(--line))}
+  .ev{position:relative;padding:0 0 16px}
+  .ev::before{
+    content:"";position:absolute;left:-25px;top:5px;width:11px;height:11px;border-radius:50%;
+    background:#fff;border:3px solid var(--day,var(--accent2))
+  }
+  .ev .time{font-size:12.5px;font-weight:800;color:var(--day,var(--accent2));letter-spacing:.5px}
+  .ev .title{font-size:15.5px;font-weight:700;margin:1px 0 2px}
+  .ev .meta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .ev .meta .ico{font-style:normal}
+  .ev .dur{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;
+    background:#eef3f2;color:var(--accent2);
+    background:color-mix(in srgb, var(--day,var(--accent2)) 15%, #fff);
+    color:color-mix(in srgb, var(--day,var(--accent2)) 75%, #333)}
+  .ev .note{margin-top:4px;font-size:12.5px;color:var(--accent);background:#fbecea;border-radius:8px;padding:4px 9px;display:inline-block}
+
+  /* Cards (meals / souvenirs / tips) */
+  .sub-h{font-size:14px;font-weight:800;margin:18px 2px 8px;color:var(--ink);display:flex;align-items:center;gap:7px;padding-left:9px;border-left:4px solid var(--day,var(--accent2))}
+  .pill-tag{font-size:11px;font-weight:700;color:#fff;background:var(--gold);padding:2px 9px;border-radius:999px}
+  .cards{display:grid;gap:8px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;
+    box-shadow:var(--shadow);display:flex;gap:10px;align-items:center;justify-content:space-between
+  }
+  .card .c-main{min-width:0}
+  .card .c-title{font-size:14.5px;font-weight:700;line-height:1.4}
+  .card .c-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .card .c-link{
+    flex:0 0 auto;align-self:center;font-size:18px;text-decoration:none;
+    background:#eef3f2;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center
+  }
+  .card .c-link:active{transform:scale(.94)}
+
+  /* Flights */
+  .flight{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px
+  }
+  .flight .leg{background:var(--day,var(--accent2));color:#fff;font-weight:800;font-size:12px;padding:4px 10px;border-radius:8px;white-space:nowrap}
+  .flight{border-left:5px solid var(--day,var(--accent2))}
+  .flight .route{font-weight:800;font-size:15px}
+  .flight .fmeta{font-size:12.5px;color:var(--muted)}
+
+  /* 互動地圖 */
+  .map-leaflet{height:340px;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);margin-bottom:8px;background:#e6eaec}
+  .map-leaflet .leaflet-tooltip.spot{
+    background:#fff;border:1.5px solid var(--day,#e8635a);color:#222;font-weight:700;font-size:12px;
+    border-radius:7px;padding:2px 8px;box-shadow:0 1px 5px rgba(0,0,0,.28);white-space:nowrap
+  }
+  .map-leaflet .leaflet-tooltip.spot.near{border-color:#b8893b;color:#7a5a1f}
+  .map-leaflet .leaflet-tooltip.spot::before{display:none}
+  .map-legend{font-size:12.5px;color:var(--muted);margin:0 2px 16px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .map-legend i{font-style:normal;font-size:14px}
+  .map-note{font-size:12.5px;color:var(--accent);background:#fbecea;border-radius:8px;padding:8px 11px;margin-bottom:14px}
+
+  /* 當日地圖（圖片版，選用） */
+  .map-card{display:block;position:relative;margin:0 0 10px;border-radius:14px;overflow:hidden;
+    border:1px solid var(--line);box-shadow:var(--shadow);background:#fff}
+  .map-card.broken{display:none}
+  .map-img{display:block;width:100%;height:auto}
+  .map-card .map-cap{position:absolute;left:0;bottom:0;right:0;color:#fff;font-size:13px;font-weight:700;
+    padding:14px 12px 8px;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.6))}
+  .map-card .map-zoom{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;color:#fff;
+    background:rgba(0,0,0,.45);padding:3px 8px;border-radius:999px}
+
+  .loading,.error{text-align:center;color:var(--muted);padding:40px 16px}
+  .error{color:var(--accent)}
+  footer{text-align:center;font-size:11.5px;color:var(--muted);margin-top:34px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>關西五日自由行</h1>
+  <div class="dates">2026 ・ 6/6（六） – 6/10（三）</div>
+  <div class="clock" id="clock">
+    <div class="date">——</div>
+    <div class="time">--:--:--</div>
+  </div>
+  <div class="hotel" id="hotelChip">🏨 載入中…</div>
+</header>
+
+<div class="status" id="status">
+  <span class="dot"></span><span id="statusText">讀取資料中…</span>
+  <button id="refreshBtn" type="button">↻ 重新整理</button>
+</div>
+
+<nav class="tabs" id="tabs"></nav>
+
+<div class="wrap">
+  <main id="app">
+    <div class="loading">⏳ 正在從 Google Sheet 讀取行程…</div>
+  </main>
+  <footer>
+    資料來源：Google Sheet · 編輯試算表 <code>data</code> 頁籤即可即時更新本頁<br>
+    🤖 旅遊說明書 by Claude Code
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   設定：把資料放在 Google Sheet 一個名為 data 的頁籤即可
+   ============================================================ */
+const SHEET_ID = "1vjMkiAkENQ0itLlpfDAt7aAIQLkHpGAKXNa78nCa-fo";
+const SHEET_TAB = "data";
+const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_TAB)}`;
+const COLS = ["type","day","category","time","title","transport","duration","url","note"];
+const TYPES = ["day","schedule","meal","hotel","souvenir","flight","tip","map"]; // 合法的 type 值
+
+/* 離線備援資料：當 Sheet 讀不到（尚未建立 data 頁籤 / 改成私有）時顯示 */
+const FALLBACK = [
+["hotel","","","","大阪上本町喜來登","","","https://share.google/Dl6JAeOb9lvHbaNPP","4 晚都住這"],
+["day","6/6(六)","","","到處亂晃日","","","https://images.unsplash.com/photo-1590559899731-a382839e5549?auto=format&fit=crop&w=1000&q=70","抵達大阪 → 飯店Check-in → 敘敘苑燒肉 → 梅田商圈 → 心齋橋 → 道頓堀"],
+["schedule","6/6(六)","","08:15","桃園起飛","飛機","3hr45m","",""],
+["schedule","6/6(六)","","12:00","抵達關西機場","入境、領行李","約60~75分","",""],
+["schedule","6/6(六)","","13:20","前往大阪市區","南海Rapi:t：關西空港站 → 南海難波站","34分","",""],
+["schedule","6/6(六)","","14:00","前往飯店","千日前線：なんば站 → 谷町九丁目站","5分","",""],
+["schedule","6/6(六)","","14:15","抵達飯店","谷町九丁目站 → 飯店步行","5分","",""],
+["schedule","6/6(六)","","15:30","前往敘敘苑","谷町線：谷町九丁目站 → 東梅田站","10分","",""],
+["schedule","6/6(六)","","15:45","步行至LUCUA","東梅田站 → JR大阪站LUCUA","10~15分","",""],
+["schedule","6/6(六)","","16:30","敘敘苑燒肉","固定行程","約1.5hr","",""],
+["schedule","6/6(六)","","18:30","梅田商圈散步","Grand Front、LUCUA","自由","",""],
+["schedule","6/6(六)","","19:30","前往心齋橋","御堂筋線：梅田站 → 心齋橋站","7分","",""],
+["schedule","6/6(六)","","19:45","心齋橋、道頓堀","固力果、藥妝、唐吉軻德","自由","","大買特買、還有胃就繼續吃"],
+["schedule","6/6(六)","","21:30","返回飯店","千日前線：なんば站 → 谷町九丁目站","5分","",""],
+["meal","6/6(六)","晚餐","16:30","叙叙苑 Lucua大坂店","","","https://share.google/AFARsmuxp4Cw2sAkv","已訂位"],
+["day","6/7(日)","","","USJ環球影城日","","","https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/USJ_-_panoramio.jpg/960px-USJ_-_panoramio.jpg","USJ 全天（已預約，已下載門票 QR ＋ 快速通關 QR）"],
+["schedule","6/7(日)","","06:45","飯店出發","步行至谷町九丁目站","5分","",""],
+["schedule","6/7(日)","","06:55","前往USJ","千日前線：谷町九丁目→玉川(12分)／步行：玉川→JR野田(5分)／JR環狀線：野田→西九條(3分)／JR夢咲線：西九條→Universal City(5分)","約25分","",""],
+["schedule","6/7(日)","","07:35","抵達USJ","步行至入口","5分","",""],
+["schedule","6/7(日)","","08:00~20:00","USJ全天","午餐樂園吃","全天","","累了就提早返程"],
+["schedule","6/7(日)","","20:45","返回飯店","原路返回","約40分","","時間暫定"],
+["schedule","6/7(日)","","21:30","抵達飯店","休息","","","要買消夜（叫UBER）"],
+["meal","6/7(日)","午餐","12:00","樂園推薦美食（我要吃大雞腿）","","","https://vivianexplore.tw/the-best-foods-at-universal-studio-japan/",""],
+["day","6/8(一)","","","京都古都日","","","https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&w=1000&q=70","嵐山竹林 → 天龍寺 → 渡月橋 → 清水寺 → 二年坂三年坂 → 八坂神社 → 祇園花見小路"],
+["schedule","6/8(一)","","07:15","飯店出發","步行至大阪上本町站","5分","",""],
+["schedule","6/8(一)","","07:30","前往京都","近鐵：大阪上本町 → 京都站","約65分","",""],
+["schedule","6/8(一)","","08:45","前往嵐山","JR嵯峨野線：京都站 → 嵯峨嵐山站","17分","",""],
+["schedule","6/8(一)","","09:05","竹林小徑","步行","10分","",""],
+["schedule","6/8(一)","","09:20","嵐山竹林","參觀","40分","",""],
+["schedule","6/8(一)","","10:00","天龍寺","步行","5分","",""],
+["schedule","6/8(一)","","11:00","渡月橋","步行","10分","",""],
+["schedule","6/8(一)","","12:00","嵐山午餐","商店街","","",""],
+["schedule","6/8(一)","","12:45","前往清水寺","UBER","45分","",""],
+["schedule","6/8(一)","","14:00","清水寺","參觀","","",""],
+["schedule","6/8(一)","","15:20","二年坂","步行","","",""],
+["schedule","6/8(一)","","15:50","三年坂","步行","","",""],
+["schedule","6/8(一)","","16:20","八坂神社","步行","","",""],
+["schedule","6/8(一)","","17:00","返回京都站","UBER","20~30分","",""],
+["schedule","6/8(一)","","18:00","京都站回大阪","近鐵：京都站 → 大阪上本町站","約65分","",""],
+["schedule","6/8(一)","","18:30","回飯店附近繞繞","隨意吃不然叫UBER","","",""],
+["meal","6/8(一)","午餐","12:00","嵐山よしむら蕎麥麵","","","https://share.google/8Z65V2qRBZHqCV17s",""],
+["meal","6/8(一)","午餐","","五木茶屋嵐山本店","","","https://share.google/JFXNvXhdOXpzbVaoS",""],
+["meal","6/8(一)","午餐","","八十八良葉舍（京福嵐山站步行5分）","","","https://share.google/Bd1tmC7paVh3IOPzK",""],
+["meal","6/8(一)","午餐","","Iks Cafe 京都嵐山總店（京福嵐山站步行2分）","","","https://share.google/AMyCQXJ9nlq7EADl0",""],
+["meal","6/8(一)","午餐","","京都嵐山 和牛 六重亭","","","https://share.google/E7hb0cs3kBahas9Fu",""],
+["meal","6/8(一)","午餐","","中村屋 可樂餅","","","https://share.google/3nuskczIG6FuNPoTA",""],
+["meal","6/8(一)","午餐","","Niku no Odakichi 嵐山店（嵐山站步行1分）","","","https://share.google/JLMMIvP48HaIOSyM7",""],
+["meal","6/8(一)","午餐","","京都嵐山 湯葉チーズ本舗 本店","","","https://share.google/Fxl60nGbK4db790PF",""],
+["day","6/9(二)","","","奈良＋豬豬咖啡＋通天閣夜景","","","https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1000&q=70","奈良餵鹿 → Mipig Cafe → 新世界 → 通天閣夜景"],
+["schedule","6/9(二)","","08:00","飯店出發","步行至大阪上本町站","5分","",""],
+["schedule","6/9(二)","","08:10","前往奈良","近鐵奈良線：大阪上本町站 → 近鐵奈良站","約40分","",""],
+["schedule","6/9(二)","","08:50","抵達奈良","步行至奈良公園","約10分","",""],
+["schedule","6/9(二)","","09:00~10:30","奈良公園餵鹿","步行","","",""],
+["schedule","6/9(二)","","10:30~11:00","東大寺","步行","","",""],
+["schedule","6/9(二)","","11:00","奈良午餐","奈良町","","",""],
+["schedule","6/9(二)","","13:15","返回大阪","近鐵奈良站 → 大阪難波站","約40分","",""],
+["schedule","6/9(二)","","15:00~15:30","咖啡廳周邊散步","美國村周邊","自由","","吃章魚燒"],
+["schedule","6/9(二)","","15:30","Mipig Cafe","已預約","約1小時","",""],
+["schedule","6/9(二)","","16:00","前往新世界","坐UBER","約10分","",""],
+["schedule","6/9(二)","","18:00~19:00","新世界晚餐","串炸、居酒屋","","",""],
+["schedule","6/9(二)","","19:00~20:00","通天閣夜景","展望台","","",""],
+["schedule","6/9(二)","","20:30","返回飯店","惠美須町站 → 谷町九丁目站","約10分","",""],
+["schedule","6/9(二)","","21:00","回飯店","","","",""],
+["meal","6/9(二)","午餐","11:00","內臟粹 奈良三條店（近鐵奈良站步行6分）","","","https://share.google/cX39MFOuVJKIaG4Zq","盡量早點吃"],
+["meal","6/9(二)","午餐","","牛Mabushi 三山","","","https://share.google/bPvD02CLbxDWSXcpB",""],
+["meal","6/9(二)","午餐","","大佛布丁","","","https://share.google/WtYo2kPRjYKGasEHf",""],
+["meal","6/9(二)","下午茶","15:30","Mipig Cafe（豬豬咖啡廳）","","","https://share.google/Xkvrrn78J9y473Sp4","已預約拍照"],
+["day","6/10(三)","","","回台日","","","https://images.unsplash.com/photo-1513407030348-c983a97b98d8?auto=format&fit=crop&w=1000&q=70","Check-out → 難波 → 關西機場 → 賦歸"],
+["schedule","6/10(三)","","08:00","早餐","附近吃或叫UBER","","",""],
+["schedule","6/10(三)","","09:00","Check-out","","","",""],
+["schedule","6/10(三)","","09:10","前往難波","千日前線：谷町九丁目站 → なんば站","5分","",""],
+["schedule","6/10(三)","","09:35","南海難波站","步行轉乘","","",""],
+["schedule","6/10(三)","","09:45","前往機場","南海Rapi:t：南海難波站 → 關西空港站","34分","",""],
+["schedule","6/10(三)","","10:20","抵達機場","","","",""],
+["schedule","6/10(三)","","11:00","報到、托運、免稅店","","","",""],
+["schedule","6/10(三)","","14:00","起飛","關西機場","","",""],
+["schedule","6/10(三)","","16:00","抵達台灣","","","",""],
+["souvenir","","大阪篇","","大阪伴手禮全集","","","https://vivianexplore.tw/osaka-souvenir/",""],
+["souvenir","","京都篇","","加加阿365（花見小路巧克力店，365天不同巧克力）","","","https://goo.gl/maps/4FQUHXRoVpEKVqFD6",""],
+["souvenir","","京都篇","","Chocolat Bel Amer（日式花紋棒狀巧克力，像冰棒）","","","https://goo.gl/maps/6Rxxgdh2ba7nrGk1A",""],
+["souvenir","","京都篇","","Marie Belle（方型手工巧克力，多種口味）","","","https://goo.gl/maps/fDzauZBpTQf3aZSB8",""],
+["souvenir","","京都篇","","京都三色（丹麥吐司，保存11天可帶回台灣）","","","https://goo.gl/maps/fNuKc8KVUTJ7DTDu6",""],
+["souvenir","","京都篇","","中村藤吉（夾心餅乾，抹茶＋焙茶）","","","https://goo.gl/maps/ZGCrAfV8MH3Nuonh6",""],
+["flight","6/6(六)","去程","06/06","TPE 08:15 → KIX 12:00","中華航空","","",""],
+["flight","6/10(三)","回程","06/10","KIX 14:00 → TPE 16:00","中華航空","","",""],
+["flight","6/6(六)","行李","","托運每人 23kg／隨身每人 7kg","","","",""],
+["tip","6/6(六)","登機流程","","桃園出境","","","","報到 → 託運行李 → 安檢出境 → 登機門（起飛前30分抵達）。報到須於起飛前120～50分鐘至 T2 航廈櫃台辦理"],
+["tip","6/10(三)","登機流程","","關西出境","","","","於 T1 航廈國際線櫃台辦理報到（起飛前120～50分鐘）"],
+["tip","6/6(六)","入境日本","","Visit Japan Web","","","https://www.vjw.digital.go.jp/main/#/vjwplo001","至少入境前6小時完成，含入國審查與海關申報，過關出示 QR Code 即可入境"],
+["tip","6/6(六)","入境日本","","VJW 申請步驟","","","","註冊帳號 → 個人資料 → 同行家人 → 入境回國預定 → 外國人入境記錄QR → 海關申報QR"],
+["tip","6/6(六)","入境日本","","入境教學參考","","","https://www.klook.com/zh-TW/blog/quarantine-immigration-japan/","Klook 入境教學文章"],
+["tip","6/6(六)","購物","","心齋橋逛街懶人包","","","https://bobbytravel.tw/shinsaibashi/","道頓堀／心齋橋逛街攻略"]
+];
+
+/* ---------- 工具 ---------- */
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const isUrl = s => /^https?:\/\//.test(String(s||"").trim());
+const mapIcon = u => /goo\.gl\/maps|google\.[^/]+\/maps|maps\.app|share\.google/.test(u) ? "📍" : "🔗";
+
+function rowsToObjects(rows){
+  return rows.map(r=>{
+    const o={};
+    COLS.forEach((c,i)=>o[c]=(r[i]??"").toString().trim());
+    return o;
+  }).filter(o=>o.type);
+}
+
+/* 把 gviz 的 JSON 物件轉成我們的列陣列 */
+function gvizRows(json){
+  if(!json || !json.table || !json.table.rows) return [];
+  return json.table.rows.map(row=>{
+    const cells = row.c || [];
+    return COLS.map((_,i)=>{
+      const c = cells[i];
+      if(!c) return "";
+      return (c.f!=null ? c.f : (c.v!=null ? c.v : "")).toString();
+    });
+  }).filter(r=>TYPES.includes(r[0])); // 只留合法 type 值，順便濾掉表頭列
+}
+
+/* ---------- 渲染（單日切換） ---------- */
+const PAGE_IMG = {
+  souvenir:"https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1000&q=70",
+  info:"https://images.unsplash.com/photo-1513407030348-c983a97b98d8?auto=format&fit=crop&w=1000&q=70"
+};
+const DAY_COLORS = ["#e8635a","#3b82c4","#4e9e5f","#e6913c","#8a6bbf"]; // D1紅 D2藍 D3綠 D4橙 D5紫（循環）
+const GIFT_COLOR = "#b8893b";
+let PAGES = [];  // [{id,label,sub,today,color}]
+
+/* 交通方式 → 圖示 */
+function transIcon(t){
+  t = String(t||"");
+  if(/步行|走/.test(t)) return "🚶";
+  if(/飛機|起飛|班機/.test(t)) return "✈️";
+  if(/UBER|uber|計程/.test(t)) return "🚗";
+  if(/JR|環狀|夢咲|嵯峨野/.test(t)) return "🚆";
+  if(/南海|Rapi/.test(t)) return "🚝";
+  if(/近鐵|御堂筋|谷町|千日前|地鐵|電車|站|線/.test(t)) return "🚇";
+  return "📍";
+}
+
+/* 各日景點座標：plan=行程內(紅)、near=附近順遊(金，不在行程內) */
+const DAY_SPOTS = {
+  "6/6(六)":[
+    {n:"大阪上本町喜來登(住宿)",lat:34.6655,lng:135.5186},
+    {n:"心齋橋",lat:34.6723,lng:135.5009},
+    {n:"道頓堀(固力果)",lat:34.6686,lng:135.5010},
+    {n:"梅田 / LUCUA(敘敘苑)",lat:34.7025,lng:135.4959},
+    {n:"難波站",lat:34.6627,lng:135.5016},
+    {n:"黑門市場",lat:34.6651,lng:135.5061,near:1},
+    {n:"美國村",lat:34.6720,lng:135.4977,near:1},
+    {n:"大阪城",lat:34.6873,lng:135.5259,near:1},
+    {n:"梅田藍天大廈",lat:34.7053,lng:135.4904,near:1},
+    {n:"新世界・通天閣",lat:34.6525,lng:135.5061,near:1}
+  ],
+  "6/7(日)":[
+    {n:"USJ 環球影城",lat:34.6654,lng:135.4323},
+    {n:"Universal City站",lat:34.6668,lng:135.4356},
+    {n:"天保山大摩天輪",lat:34.6566,lng:135.4319,near:1},
+    {n:"海遊館",lat:34.6545,lng:135.4289,near:1}
+  ],
+  "6/8(一)":[
+    {n:"渡月橋",lat:35.0130,lng:135.6776},
+    {n:"竹林小徑",lat:35.0170,lng:135.6716},
+    {n:"天龍寺",lat:35.0156,lng:135.6735},
+    {n:"嵯峨嵐山站",lat:35.0190,lng:135.6826},
+    {n:"清水寺",lat:34.9948,lng:135.7849},
+    {n:"二年坂・三年坂",lat:34.9966,lng:135.7808},
+    {n:"八坂神社",lat:35.0036,lng:135.7785},
+    {n:"祇園花見小路",lat:35.0036,lng:135.7754},
+    {n:"野宮神社",lat:35.0176,lng:135.6722,near:1},
+    {n:"嵐山猴子公園",lat:35.0099,lng:135.6779,near:1},
+    {n:"伏見稻荷大社",lat:34.9671,lng:135.7727,near:1},
+    {n:"金閣寺",lat:35.0394,lng:135.7292,near:1}
+  ],
+  "6/9(二)":[
+    {n:"近鐵奈良站",lat:34.6839,lng:135.8281},
+    {n:"奈良公園(餵鹿)",lat:34.6851,lng:135.8430},
+    {n:"東大寺",lat:34.6890,lng:135.8398},
+    {n:"興福寺",lat:34.6831,lng:135.8311},
+    {n:"春日大社",lat:34.6815,lng:135.8483,near:1},
+    {n:"奈良町",lat:34.6790,lng:135.8290,near:1},
+    {n:"若草山",lat:34.6889,lng:135.8523,near:1},
+    {n:"二月堂",lat:34.6900,lng:135.8438,near:1}
+  ],
+  "6/10(三)":[
+    {n:"大阪上本町喜來登(住宿)",lat:34.6655,lng:135.5186},
+    {n:"難波站",lat:34.6627,lng:135.5016},
+    {n:"關西國際機場",lat:34.4320,lng:135.2304},
+    {n:"臨空城 Outlet",lat:34.4112,lng:135.2966,near:1}
+  ]
+};
+
+function pin(color){
+  return L.divIcon({className:"",iconSize:[18,18],iconAnchor:[9,9],
+    html:`<span style="display:block;width:14px;height:14px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></span>`});
+}
+
+let dayMaps = {};      // mapId -> {spots,color}
+let leafletMaps = {};  // mapId -> Leaflet 實例
+
+function initDayMap(id, spots, color){
+  const box = document.getElementById(id);
+  if(typeof L==="undefined" || !box) return null;
+  const map = L.map(id,{scrollWheelZoom:false});
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    {maxZoom:19,subdomains:"abcd",attribution:'&copy; OpenStreetMap、CARTO'}).addTo(map);
+  const pts=[];
+  spots.forEach(s=>{
+    L.marker([s.lat,s.lng],{icon:pin(s.near?"#b8893b":color)}).addTo(map)
+      .bindTooltip(s.n,{permanent:true,direction:"top",className:"spot"+(s.near?" near":""),offset:[0,-4]});
+    pts.push([s.lat,s.lng]);
+  });
+  if(pts.length) map.fitBounds(pts,{padding:[45,45],maxZoom:15});
+  return map;
+}
+
+function heroImg(img, badge, title, badgeColor){
+  const bg = isUrl(img) ? `background-image:url('${esc(img)}')` : "background:linear-gradient(135deg,#1f6f6b,#15514e)";
+  const bc = badgeColor ? ` style="background:${badgeColor}"` : "";
+  return `<div class="hero-img" style="${bg}"><div class="cap"><span class="badge"${bc}>${esc(badge)}</span><h2>${esc(title)}</h2></div></div>`;
+}
+
+function render(objs){
+  const hotel = objs.find(o=>o.type==="hotel");
+  const days  = objs.filter(o=>o.type==="day");
+  const app = document.getElementById("app");
+  const tabs = document.getElementById("tabs");
+  Object.values(leafletMaps).forEach(m=>{ try{ m.remove(); }catch(e){} });
+  dayMaps={}; leafletMaps={};
+  app.innerHTML=""; tabs.innerHTML=""; PAGES=[];
+
+  // hotel chip
+  if(hotel){
+    document.getElementById("hotelChip").innerHTML =
+      `🏨 ${isUrl(hotel.url)?`<a href="${esc(hotel.url)}" target="_blank" rel="noopener">${esc(hotel.title)}</a>`:esc(hotel.title)}`
+      + (hotel.note?` · ${esc(hotel.note)}`:"");
+  }
+
+  const today = todayKey();
+  const dayVals = days.map(x=>x.day);  // 用來判斷 flight/tip 的 day 是否對得上
+
+  // 每日 page
+  days.forEach((d,idx)=>{
+    const id="day"+idx;
+    const color = DAY_COLORS[idx % DAY_COLORS.length];
+    PAGES.push({id, label:esc(d.day), sub:"DAY "+(idx+1), today:parseMD(d.day)===today, color});
+
+    const sec=document.createElement("section"); sec.className="page"; sec.id=id;
+    sec.style.setProperty("--day", color);
+    let html = heroImg(d.url, `DAY ${idx+1} ・ ${d.day}`, d.title);
+    if(d.note) html += `<div class="summary"><span class="summary-label">本日重點</span>${esc(d.note)}</div>`;
+
+    // timeline
+    const evs = objs.filter(o=>o.type==="schedule" && o.day===d.day);
+    html += `<div class="tl">`;
+    evs.forEach(e=>{
+      html += `<div class="ev">`;
+      if(e.time) html += `<div class="time">${esc(e.time)}</div>`;
+      html += `<div class="title">${esc(e.title)}</div>`;
+      html += `<div class="meta">`;
+      if(e.transport) html += `<span><i class="ico">${transIcon(e.transport)}</i> ${esc(e.transport)}</span>`;
+      if(e.duration)  html += `<span class="dur">${esc(e.duration)}</span>`;
+      html += `</div>`;
+      if(e.note) html += `<div class="note">💡 ${esc(e.note)}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+
+    // 互動景點地圖（紅=行程、金=附近順遊）
+    const spots = DAY_SPOTS[d.day];
+    if(spots && spots.length){
+      const mid = "map-"+id;
+      html += `<div class="sub-h">🗺️ 當日景點地圖</div>`;
+      if(typeof L!=="undefined"){
+        html += `<div class="map-leaflet" id="${mid}"></div>`;
+        html += `<div class="map-legend"><span><i style="color:${color}">●</i> 今日行程</span>`+
+                `<span><i style="color:#b8893b">●</i> 附近順遊（沒排到）</span>`+
+                `<span>🔍 可縮放・拖曳探索周邊</span></div>`;
+        dayMaps[mid]={spots,color};
+      }else{
+        html += `<div class="map-note">⚠️ 地圖需連線載入，目前離線無法顯示。</div>`;
+      }
+    }
+
+    // 當日地圖（type=map 圖片，選用）
+    const maps = objs.filter(o=>o.type==="map" && o.day===d.day);
+    if(maps.length){
+      html += `<div class="sub-h">🗺️ 逛街地圖</div>`;
+      maps.forEach(mp=>{
+        const cap = mp.title ? `<div class="map-cap">${esc(mp.title)}</div>` : "";
+        if(isUrl(mp.url) || /\.(png|jpe?g|webp|gif)$/i.test(mp.url)){
+          html += `<a class="map-card" href="${esc(mp.url)}" target="_blank" rel="noopener" title="點擊看大圖">`+
+                  `<img class="map-img" src="${esc(mp.url)}" alt="${esc(mp.title||"地圖")}" loading="lazy" `+
+                  `onerror="this.closest('.map-card').classList.add('broken')">`+
+                  cap+`<span class="map-zoom">🔍 點圖放大</span></a>`;
+        }
+      });
+    }
+
+    // meals
+    const meals = objs.filter(o=>o.type==="meal" && o.day===d.day);
+    if(meals.length){
+      const byCat={};
+      meals.forEach(m=>{(byCat[m.category||"用餐"]=byCat[m.category||"用餐"]||[]).push(m);});
+      Object.keys(byCat).forEach(cat=>{
+        html += `<div class="sub-h">🍽️ ${esc(cat)}推薦`+
+                (byCat[cat][0].time?` <span class="pill-tag">${esc(byCat[cat][0].time)}</span>`:"")+`</div>`;
+        html += `<div class="cards">`;
+        byCat[cat].forEach(m=>{ html += card(m.title, m.note, m.url); });
+        html += `</div>`;
+      });
+    }
+
+    // 當日航班與出入境資訊（沒對到任何日期的孤兒列，掛到第一天避免消失）
+    const orphan = o => o.day===d.day || (idx===0 && !dayVals.includes(o.day));
+    const dayFlights = objs.filter(o=>o.type==="flight" && orphan(o));
+    const dayTips    = objs.filter(o=>o.type==="tip"    && orphan(o));
+    if(dayFlights.length || dayTips.length){
+      html += `<div class="sub-h">✈️ 航班 ・ 出入境</div>`;
+      dayFlights.forEach(f=>{
+        html += `<div class="flight"><span class="leg">${esc(f.category)}</span>`+
+                `<div style="flex:1;min-width:0"><div class="route">${esc(f.title)}</div>`+
+                `<div class="fmeta">${[f.time,f.transport].filter(Boolean).map(esc).join(" ・ ")}</div></div></div>`;
+      });
+      if(dayTips.length){
+        const byCat={};
+        dayTips.forEach(t=>{(byCat[t.category||"提醒"]=byCat[t.category||"提醒"]||[]).push(t);});
+        Object.keys(byCat).forEach(cat=>{
+          html += `<div class="sub-h">📌 ${esc(cat)}</div><div class="cards">`;
+          byCat[cat].forEach(t=>{ html += card(t.title,t.note,t.url); });
+          html += `</div>`;
+        });
+      }
+    }
+
+    sec.innerHTML=html; app.appendChild(sec);
+  });
+
+  // 伴手禮 page
+  const souv = objs.filter(o=>o.type==="souvenir");
+  if(souv.length){
+    PAGES.push({id:"souvenir", label:"伴手禮", sub:"GIFTS", color:GIFT_COLOR});
+    const sec=document.createElement("section"); sec.className="page"; sec.id="souvenir";
+    sec.style.setProperty("--day", GIFT_COLOR);
+    let html = heroImg(PAGE_IMG.souvenir, "SHOPPING", "伴手禮必買清單", GIFT_COLOR);
+    const byCat={};
+    souv.forEach(s=>{(byCat[s.category||"其他"]=byCat[s.category||"其他"]||[]).push(s);});
+    Object.keys(byCat).forEach(cat=>{
+      html+=`<div class="sub-h">🎁 ${esc(cat)}</div><div class="cards">`;
+      byCat[cat].forEach(s=>{ html+=card(s.title,s.note,s.url); });
+      html+=`</div>`;
+    });
+    sec.innerHTML=html; app.appendChild(sec);
+  }
+
+  // 建導覽列
+  PAGES.forEach(p=>{
+    const a=document.createElement("a");
+    a.href="#"+p.id; a.dataset.page=p.id; a.dataset.color=p.color||"";
+    if(p.today) a.classList.add("today");
+    a.innerHTML=`<span class="d">${p.sub}</span>${p.label}`;
+    a.addEventListener("click",e=>{ e.preventDefault(); goPage(p.id); });
+    tabs.appendChild(a);
+  });
+
+  // 決定初始頁：網址 hash > 今日 > 第一天
+  const fromHash = location.hash.replace(/^#/,"");
+  let start = (PAGES.find(p=>p.id===fromHash)||PAGES.find(p=>p.today)||PAGES[0]||{}).id;
+  showPage(start, false);
+}
+
+function showPage(id, scroll){
+  if(!id) return;
+  document.querySelectorAll(".page").forEach(s=>s.classList.toggle("active", s.id===id));
+  document.querySelectorAll("nav.tabs a").forEach(a=>{
+    const on = a.dataset.page===id;
+    a.classList.toggle("active", on);
+    if(on){
+      const c=a.dataset.color;
+      a.style.background=c; a.style.borderColor=c; a.style.color="#fff";
+      a.scrollIntoView({inline:"center",block:"nearest",behavior:"smooth"});
+    }else{
+      a.style.background=""; a.style.borderColor=""; a.style.color="";
+    }
+  });
+  // 地圖延遲初始化（容器顯示後才有尺寸）
+  const mid = "map-"+id;
+  if(dayMaps[mid]){
+    if(!leafletMaps[mid]){
+      leafletMaps[mid] = initDayMap(mid, dayMaps[mid].spots, dayMaps[mid].color);
+    }else{
+      setTimeout(()=>{ try{ leafletMaps[mid].invalidateSize(); }catch(e){} }, 60);
+    }
+  }
+  if(scroll) window.scrollTo({top:0,behavior:"smooth"});
+}
+function goPage(id){ location.hash=id; showPage(id,true); }
+window.addEventListener("hashchange",()=>{ const id=location.hash.replace(/^#/,""); if(id) showPage(id,true); });
+
+/* 今日比對：把 6/6(六) 之類正規化成 6/6 */
+function todayKey(){ const d=new Date(); return (d.getMonth()+1)+"/"+d.getDate(); }
+function parseMD(s){ const m=String(s).match(/(\d{1,2})\/(\d{1,2})/); return m ? (parseInt(m[1],10)+"/"+parseInt(m[2],10)) : ""; }
+
+function card(title, sub, url){
+  const link = isUrl(url) ? `<a class="c-link" href="${esc(url)}" target="_blank" rel="noopener">${mapIcon(url)}</a>` : "";
+  return `<div class="card"><div class="c-main"><div class="c-title">${esc(title)}</div>`+
+         (sub?`<div class="c-sub">${esc(sub)}</div>`:"")+`</div>${link}</div>`;
+}
+
+/* ---------- 載入 ---------- */
+function setStatus(text, offline){
+  const s=document.getElementById("status");
+  s.classList.toggle("offline",!!offline);
+  document.getElementById("statusText").textContent=text;
+}
+
+/* 用 JSONP（script 注入）讀 gviz：不受 CORS 限制，file:// 與線上皆可 */
+let _loadSeq = 0;
+function load(){
+  setStatus("讀取資料中…",false);
+  const seq = ++_loadSeq;
+  const cb = "__gvizCb" + seq;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq`
+            + `?tqx=out:json;responseHandler:${cb}`
+            + `&sheet=${encodeURIComponent(SHEET_TAB)}&headers=1&_=${seq}_${(new Date()).getTime()}`;
+  const script = document.createElement("script");
+  let done = false;
+
+  const cleanup = () => { delete window[cb]; script.remove(); };
+  const fail = (err) => {
+    if(done) return; done = true; clearTimeout(timer); cleanup();
+    console.warn("讀取 Sheet 失敗，改用內建備援資料：", err);
+    render(rowsToObjects(FALLBACK));
+    setStatus("離線備援資料（未連到 data 頁籤）", true);
+  };
+
+  const timer = setTimeout(() => fail("timeout"), 10000);
+
+  window[cb] = (json) => {
+    if(done) return; done = true; clearTimeout(timer); cleanup();
+    try{
+      const rows = gvizRows(json);
+      if(!rows.length) throw new Error("empty / 找不到 data 頁籤資料");
+      render(rowsToObjects(rows));
+      setStatus("已連線 Google Sheet ・ 即時資料", false);
+    }catch(e){
+      console.warn("解析 Sheet 失敗，改用內建備援資料：", e);
+      render(rowsToObjects(FALLBACK));
+      setStatus("離線備援資料（未連到 data 頁籤）", true);
+    }
+  };
+
+  script.src = url;
+  script.onerror = () => fail("script load error");
+  document.head.appendChild(script);
+}
+
+/* 動態電子時鐘 */
+function tickClock(){
+  const el=document.getElementById("clock"); if(!el) return;
+  const d=new Date(), p=n=>String(n).padStart(2,"0");
+  const wk=["日","一","二","三","四","五","六"][d.getDay()];
+  el.querySelector(".date").textContent=`${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}（${wk}）`;
+  el.querySelector(".time").textContent=`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+tickClock(); setInterval(tickClock,1000);
+
+document.getElementById("refreshBtn").addEventListener("click",load);
+load();
+</script>
+</body>
+</html>
