@@ -179,6 +179,8 @@
   .map-leaflet .leaflet-tooltip.spot::before{display:none}
   .map-legend{font-size:12.5px;color:var(--muted);margin:0 2px 16px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
   .map-legend i{font-style:normal;font-size:14px}
+  .leaflet-bar a.locate-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;font-size:16px;line-height:1;text-decoration:none;background:#fff}
+  .leaflet-bar a.locate-btn.on{background:#d6e8ff}
   .map-note{font-size:12.5px;color:var(--accent);background:#fbecea;border-radius:8px;padding:8px 11px;margin-bottom:14px}
 
   /* 颱風頁：嵌入式天氣圖 */
@@ -513,6 +515,55 @@ function pin(color){
   return L.divIcon({className:"",iconSize:[18,18],iconAnchor:[9,9],
     html:`<span style="display:block;width:14px;height:14px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></span>`});
 }
+/* 「我的位置」藍點圖示 */
+function meIcon(){
+  return L.divIcon({className:"",iconSize:[20,20],iconAnchor:[10,10],
+    html:`<span style="display:block;width:14px;height:14px;border-radius:50%;background:#2b7cff;border:3px solid #fff;box-shadow:0 0 0 4px rgba(43,124,255,.25),0 1px 4px rgba(0,0,0,.5)"></span>`});
+}
+/* 停止某地圖的定位監聽並移除標記 */
+function stopLocate(map){
+  if(!map) return;
+  if(map._geoWatch!=null){ try{ navigator.geolocation.clearWatch(map._geoWatch); }catch(e){} map._geoWatch=null; }
+  if(map._meMarker){ try{ map.removeLayer(map._meMarker); }catch(e){} map._meMarker=null; }
+  if(map._meCircle){ try{ map.removeLayer(map._meCircle); }catch(e){} map._meCircle=null; }
+}
+/* 切換定位（點一下開始追蹤、再點關閉） */
+function toggleLocate(map, btn){
+  if(map._geoWatch!=null){ stopLocate(map); btn.classList.remove("on"); return; }
+  if(!navigator.geolocation){ alert("此裝置／瀏覽器不支援定位功能"); return; }
+  btn.classList.add("on");
+  let centered=false;
+  map._geoWatch = navigator.geolocation.watchPosition(p=>{
+    const ll=[p.coords.latitude, p.coords.longitude];
+    const acc=p.coords.accuracy||0;
+    if(!map._meMarker){
+      map._meMarker = L.marker(ll,{icon:meIcon(),zIndexOffset:1000}).addTo(map)
+        .bindTooltip("我的位置",{direction:"top",className:"spot",offset:[0,-6]});
+      map._meCircle = L.circle(ll,{radius:acc,color:"#2b7cff",weight:1,fillColor:"#2b7cff",fillOpacity:.15}).addTo(map);
+    }else{
+      map._meMarker.setLatLng(ll); map._meCircle.setLatLng(ll).setRadius(acc);
+    }
+    if(!centered){ map.setView(ll, Math.max(map.getZoom()||13, 15)); centered=true; }
+  }, err=>{
+    btn.classList.remove("on");
+    if(map._geoWatch!=null){ try{ navigator.geolocation.clearWatch(map._geoWatch); }catch(e){} map._geoWatch=null; }
+    alert("無法取得位置："+(err && err.code===1 ? "已拒絕定位權限（請至瀏覽器設定開啟）" : (err&&err.message)||"未知錯誤"));
+  }, {enableHighAccuracy:true, maximumAge:10000, timeout:15000});
+}
+/* 在地圖左上加入「我的位置」按鈕 */
+function addLocateControl(map){
+  const Ctl = L.Control.extend({
+    options:{position:"topleft"},
+    onAdd:function(){
+      const a = L.DomUtil.create("a","leaflet-bar-part locate-btn");
+      a.href="#"; a.title="顯示我的位置"; a.innerHTML="📍";
+      L.DomEvent.on(a,"click",function(e){ L.DomEvent.stop(e); toggleLocate(map, a); });
+      L.DomEvent.disableClickPropagation(a);
+      return a;
+    }
+  });
+  map.addControl(new Ctl());
+}
 
 let dayMaps = {};      // mapId -> {spots,color}
 let leafletMaps = {};  // mapId -> Leaflet 實例
@@ -530,6 +581,7 @@ function initDayMap(id, spots, color){
     pts.push([s.lat,s.lng]);
   });
   if(pts.length) map.fitBounds(pts,{padding:[45,45],maxZoom:15});
+  addLocateControl(map);
   return map;
 }
 
@@ -545,7 +597,7 @@ function render(objs){
   const days  = objs.filter(o=>o.type==="day");
   const app = document.getElementById("app");
   const tabs = document.getElementById("tabs");
-  Object.values(leafletMaps).forEach(m=>{ try{ m.remove(); }catch(e){} });
+  Object.values(leafletMaps).forEach(m=>{ try{ stopLocate(m); m.remove(); }catch(e){} });
   dayMaps={}; leafletMaps={}; WX_JOBS=[];
   app.innerHTML=""; tabs.innerHTML=""; PAGES=[];
 
@@ -598,7 +650,8 @@ function render(objs){
         html += `<div class="map-leaflet" id="${mid}"></div>`;
         html += `<div class="map-legend"><span><i style="color:${color}">●</i> 今日行程</span>`+
                 `<span><i style="color:#b8893b">●</i> 附近順遊（沒排到）</span>`+
-                `<span>🔍 可縮放・拖曳探索周邊</span></div>`;
+                `<span><i style="color:#2b7cff">●</i> 我的位置</span>`+
+                `<span>📍 點地圖左上角顯示目前位置・🔍 可縮放拖曳</span></div>`;
         dayMaps[mid]={spots,color};
       }else{
         html += `<div class="map-note">⚠️ 地圖需連線載入，目前離線無法顯示。</div>`;
