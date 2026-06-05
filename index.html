@@ -181,6 +181,12 @@
   .map-legend i{font-style:normal;font-size:14px}
   .map-note{font-size:12.5px;color:var(--accent);background:#fbecea;border-radius:8px;padding:8px 11px;margin-bottom:14px}
 
+  /* 颱風頁：嵌入式天氣圖 */
+  .embed-wrap{height:400px;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);margin-bottom:10px;background:#e6eaec}
+  .embed-wrap iframe{width:100%;height:100%;border:0;display:block}
+  .ty-note{font-size:12.5px;line-height:1.6;color:var(--muted);background:#eef3f7;border:1px solid #d8e4ee;border-radius:10px;padding:11px 13px;margin-bottom:14px}
+  .ty-note b{color:var(--ink)}
+
   /* 當日地圖（圖片版，選用） */
   .map-card{display:block;position:relative;margin:0 0 10px;border-radius:14px;overflow:hidden;
     border:1px solid var(--line);box-shadow:var(--shadow);background:#fff}
@@ -360,10 +366,12 @@ function gvizRows(json){
 /* ---------- 渲染（單日切換） ---------- */
 const PAGE_IMG = {
   souvenir:"https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1000&q=70",
-  info:"https://images.unsplash.com/photo-1513407030348-c983a97b98d8?auto=format&fit=crop&w=1000&q=70"
+  info:"https://images.unsplash.com/photo-1513407030348-c983a97b98d8?auto=format&fit=crop&w=1000&q=70",
+  typhoon:"https://images.unsplash.com/photo-1527482797697-8795b05a13fe?auto=format&fit=crop&w=1000&q=70"
 };
 const DAY_COLORS = ["#e8635a","#3b82c4","#4e9e5f","#e6913c","#8a6bbf"]; // D1紅 D2藍 D3綠 D4橙 D5紫（循環）
 const GIFT_COLOR = "#b8893b";
+const TYPHOON_COLOR = "#3f6e8c";
 let PAGES = [];  // [{id,label,sub,today,color}]
 
 /* ---------- 天氣（Open-Meteo，免金鑰） ---------- */
@@ -665,6 +673,41 @@ function render(objs){
       byCat[cat].forEach(s=>{ html+=card(s.title,s.note,s.url); });
       html+=`</div>`;
     });
+    sec.innerHTML=html; app.appendChild(sec);
+  }
+
+  // 颱風資訊 page
+  {
+    PAGES.push({id:"typhoon", label:"颱風資訊", sub:"TYPHOON", color:TYPHOON_COLOR});
+    const sec=document.createElement("section"); sec.className="page"; sec.id="typhoon";
+    sec.style.setProperty("--day", TYPHOON_COLOR);
+    let html = heroImg(PAGE_IMG.typhoon, "TYPHOON", "颱風 ・ 天氣警報");
+
+    // Windy 即時互動天氣圖（風場，颱風螺旋一目了然）
+    const windy = "https://embed.windy.com/embed2.html?lat=30&lon=134&detailLat=34.69&detailLon=135.50"
+      + "&zoom=5&level=surface&overlay=wind&product=ecmwf&menu=&message=true&marker=true"
+      + "&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1";
+    html += `<div class="sub-h">🌀 即時天氣圖（Windy）</div>`;
+    html += `<div class="embed-wrap"><iframe src="${windy}" loading="lazy" `
+      + `referrerpolicy="no-referrer-when-downgrade" allow="fullscreen"></iframe></div>`;
+    html += `<div class="ty-note">紅點為大阪。右上可切換 <b>風 / 雨 / 雲</b> 圖層，左下時間軸可拖到旅遊日期看預報。`
+      + `颱風會呈現明顯的螺旋風場，路徑與強度以下方官方來源為準。</div>`;
+
+    // 官方 / 權威來源連結
+    const links = [
+      ["🇯🇵 日本氣象廳 JMA・颱風資訊","官方颱風路徑與強度預報","https://www.jma.go.jp/bosai/map.html#contents=typhoon&lang=tw"],
+      ["⚠️ JMA・近畿地方警報注意報","大阪／京都／奈良 警特報","https://www.jma.go.jp/bosai/warning/#area_type=offices&area_code=270000&lang=tw"],
+      ["🌐 Windy 互動天氣圖","風、雨、氣壓全圖層（網頁版）","https://www.windy.com/?34.690,135.500,6"],
+      ["🛰️ JTWC 颱風警報","美軍聯合颱風警報中心（英文路徑）","https://www.metoc.navy.mil/jtwc/jtwc.html"],
+      ["🇹🇼 中央氣象署・颱風","出發／回程台灣端參考","https://www.cwa.gov.tw/V8/C/P/Typhoon/TY_NEWS.html"],
+    ];
+    html += `<div class="sub-h">📡 官方颱風 ・ 警報來源</div><div class="cards">`;
+    links.forEach(([t,sub,u])=>{ html += card(t, sub, u); });
+    html += `</div>`;
+
+    html += `<div class="ty-note">📌 本頁天氣數值來自 Open-Meteo 預報模式，<b>不含官方颱風警報</b>；`
+      + `若遇颱風，請以上方日本氣象廳 (JMA) 與台灣中央氣象署的官方發布為準。需連線才能顯示。</div>`;
+
     sec.innerHTML=html; app.appendChild(sec);
   }
 
