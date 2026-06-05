@@ -95,8 +95,10 @@
   .hero-img .cap{position:relative;z-index:1;color:#fff;padding:16px 18px}
   .hero-img .cap .badge{display:inline-block;background:var(--day,var(--accent));font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 9px;border-radius:7px}
   .hero-img .cap h2{margin:6px 0 0;font-size:22px;font-weight:800;text-shadow:0 1px 6px rgba(0,0,0,.5)}
-  .hero-img .cap .wx{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;line-height:1.4}
-  .hero-img .cap .wx .wx-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .hero-img .cap .wx{display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:7px;background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);font-size:11px;font-weight:700;padding:5px 11px;border-radius:9px;line-height:1.4}
+  .hero-img .cap .wx .wx-row{display:inline-flex;align-items:center;gap:9px;white-space:nowrap}
+  .hero-img .cap .wx .wx-row.sub{opacity:.92}
+  .hero-img .cap .wx.muted{flex-direction:row;align-items:center;gap:5px}
   .hero-img .cap .wx .wx-ico{font-size:13px}
   .hero-img .cap .wx .wx-temp b{font-weight:800}
   .hero-img .cap .wx .wx-temp .lo{opacity:.8;font-weight:600}
@@ -488,13 +490,14 @@ function loadAllWeather(){
       const uv   = dd.uv_index_max ? Math.round(dd.uv_index_max[0]) : null;
       const psum = dd.precipitation_sum ? dd.precipitation_sum[0] : null;
       el.classList.remove("muted");
-      el.innerHTML = `<span class="wx-ico">${ico}</span><span>${txt}</span>`
+      const row1 = `<span class="wx-ico">${ico}</span><span>${txt}</span>`
         + `<span class="wx-temp"><b>${hi}°</b><span class="lo"> / ${lo}°</span></span>`
-        + (pop!=null ? `<span class="wx-pop">☔ ${pop}%</span>` : "")
-        + (rise!=null ? `<span>🌅 ${rise}</span>` : "")
+        + (pop!=null ? `<span class="wx-pop">☔ ${pop}%</span>` : "");
+      const row2 = (rise!=null ? `<span>🌅 ${rise}</span>` : "")
         + (set!=null  ? `<span>🌇 ${set}</span>`  : "")
         + (uv!=null   ? `<span>☀️UV ${uv}</span>` : "")
         + (psum!=null ? `<span>💧 ${psum}mm</span>` : "");
+      el.innerHTML = `<span class="wx-row">${row1}</span>` + (row2 ? `<span class="wx-row sub">${row2}</span>` : "");
     }).catch(()=>{
       const el = document.getElementById(job.id);
       if(el) el.innerHTML = `<span class="wx-ico">🌡️</span><span>天氣暫無資料</span>`;
