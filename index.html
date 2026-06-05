@@ -189,6 +189,19 @@
   .ty-note{font-size:12.5px;line-height:1.6;color:var(--muted);background:#eef3f7;border:1px solid #d8e4ee;border-radius:10px;padding:11px 13px;margin-bottom:14px}
   .ty-note b{color:var(--ink)}
 
+  /* 行李清單 */
+  .pack-bar{position:sticky;top:54px;z-index:5;background:var(--bg);padding:10px 0 8px;margin-bottom:4px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+  .pack-bar .pack-txt{font-size:13.5px;font-weight:800;color:var(--ink);flex:0 0 auto}
+  .pack-bar .pack-prog{flex:1 1 120px;height:10px;background:#e2ddd2;border-radius:99px;overflow:hidden;min-width:120px}
+  .pack-bar .pack-prog i{display:block;height:100%;width:0;background:var(--day,var(--accent2));border-radius:99px;transition:width .25s}
+  .pack-bar .pack-reset{flex:0 0 auto;font-size:12px;font-weight:700;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer}
+  .pack-bar .pack-reset:active{background:#f0ece4}
+  .pack-group{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:4px}
+  .pack-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14.5px;color:var(--ink);user-select:none}
+  .pack-item:last-child{border-bottom:0}
+  .pack-item input{width:20px;height:20px;flex:0 0 auto;accent-color:var(--day,var(--accent2));cursor:pointer}
+  .pack-item.done span{text-decoration:line-through;color:var(--muted)}
+
   /* 當日地圖（圖片版，選用） */
   .map-card{display:block;position:relative;margin:0 0 10px;border-radius:14px;overflow:hidden;
     border:1px solid var(--line);box-shadow:var(--shadow);background:#fff}
@@ -369,11 +382,53 @@ function gvizRows(json){
 const PAGE_IMG = {
   souvenir:"https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1000&q=70",
   info:"https://images.unsplash.com/photo-1513407030348-c983a97b98d8?auto=format&fit=crop&w=1000&q=70",
-  typhoon:"https://images.unsplash.com/photo-1527482797697-8795b05a13fe?auto=format&fit=crop&w=1000&q=70"
+  typhoon:"https://images.unsplash.com/photo-1527482797697-8795b05a13fe?auto=format&fit=crop&w=1000&q=70",
+  packing:"https://images.unsplash.com/photo-1553531384-cc64ac80f931?auto=format&fit=crop&w=1000&q=70"
 };
 const DAY_COLORS = ["#e8635a","#3b82c4","#4e9e5f","#e6913c","#8a6bbf"]; // D1紅 D2藍 D3綠 D4橙 D5紫（循環）
 const GIFT_COLOR = "#b8893b";
 const TYPHOON_COLOR = "#3f6e8c";
+const PACK_COLOR = "#2f8f88";
+
+/* 行李清單（6月關西梅雨季・USJ・奈良餵鹿情境） */
+const PACKING_LIST = [
+  {cat:"🛂 證件・重要文件", items:[
+    "護照（效期 6 個月以上）","來回電子機票／登機證","日幣現金","信用卡（先開通海外刷卡）",
+    "飯店訂房確認單","USJ 門票 QR ＋ 快速通關 QR","Visit Japan Web QR（入境／海關）",
+    "旅遊保險保單","證件影本＋大頭照（備份）",
+  ]},
+  {cat:"🔌 電子用品", items:[
+    "手機＋充電線","行動電源（USJ 整天必備）","萬國轉接頭（日本 A 型插座）","多孔 USB 充電器",
+    "網路：eSIM／SIM 卡／WiFi 機","耳機","相機＋記憶卡＋備用電池",
+  ]},
+  {cat:"👕 衣物", items:[
+    "上衣／褲子（依天數）","內衣褲・襪子","薄外套／長袖（早晚溫差・室內冷氣）","輕便雨衣＋折疊傘（梅雨季必備）",
+    "好走的鞋（嵐山・清水寺・USJ 走超多）","睡衣","帽子・太陽眼鏡（防曬）",
+  ]},
+  {cat:"🧴 盥洗・個人用品", items:[
+    "保養品・洗面乳（分裝 <100ml）","防曬乳（USJ・奈良戶外）","隱形眼鏡／藥水／備用眼鏡",
+    "化妝品","梳子・髮飾","生理用品","牙刷牙膏（飯店多有，可省）",
+  ]},
+  {cat:"💊 藥品・健康", items:[
+    "個人常備藥（慢性病）","感冒藥・腸胃藥・止痛藥","暈車藥（USJ 雲霄飛車）","防蚊液（奈良餵鹿・戶外）",
+    "OK 繃・防水貼","口罩",
+  ]},
+  {cat:"🎒 旅遊小物・其他", items:[
+    "日間小背包／側背包","環保購物袋（日本袋子要錢）","折疊行李袋（裝戰利品）","行李秤（避免回程超重）",
+    "水壺","濕紙巾・面紙","夾鏈袋（分裝・防水）",
+  ]},
+];
+const PACK_KEY = "kansai-packing-v1";
+function loadPacking(){ try{ return JSON.parse(localStorage.getItem(PACK_KEY))||{}; }catch(e){ return {}; } }
+function savePacking(o){ try{ localStorage.setItem(PACK_KEY, JSON.stringify(o)); }catch(e){} }
+function updatePackingProgress(){
+  const boxes=document.querySelectorAll("#packing input[data-pk]");
+  let done=0; boxes.forEach(b=>{ if(b.checked) done++; });
+  const total=boxes.length, pct=total?Math.round(done/total*100):0;
+  const fill=document.getElementById("packFill"), txt=document.getElementById("packTxt");
+  if(fill) fill.style.width=pct+"%";
+  if(txt) txt.textContent=`已打包 ${done} / ${total}　(${pct}%)`;
+}
 let PAGES = [];  // [{id,label,sub,today,color}]
 
 /* ---------- 天氣（Open-Meteo，免金鑰） ---------- */
@@ -762,6 +817,53 @@ function render(objs){
       + `若遇颱風，請以上方日本氣象廳 (JMA) 與台灣中央氣象署的官方發布為準。需連線才能顯示。</div>`;
 
     sec.innerHTML=html; app.appendChild(sec);
+  }
+
+  // 行李清單 page
+  {
+    PAGES.push({id:"packing", label:"行李清單", sub:"PACKING", color:PACK_COLOR});
+    const sec=document.createElement("section"); sec.className="page"; sec.id="packing";
+    sec.style.setProperty("--day", PACK_COLOR);
+    let html = heroImg(PAGE_IMG.packing, "PACKING", "出國行李清單");
+
+    const saved = loadPacking();
+    html += `<div class="pack-bar">`
+      + `<div class="pack-txt" id="packTxt">已打包 0 / 0</div>`
+      + `<div class="pack-prog"><i id="packFill"></i></div>`
+      + `<button class="pack-reset" id="packReset">重置清單</button></div>`;
+
+    PACKING_LIST.forEach((g,gi)=>{
+      html += `<div class="sub-h">${g.cat}</div><div class="pack-group">`;
+      g.items.forEach((it,ii)=>{
+        const id=`pk-${gi}-${ii}`, on=!!saved[id];
+        html += `<label class="pack-item${on?" done":""}">`
+          + `<input type="checkbox" data-pk="${id}"${on?" checked":""}>`
+          + `<span>${esc(it)}</span></label>`;
+      });
+      html += `</div>`;
+    });
+    html += `<div class="ty-note">✅ 勾選狀態會自動儲存在本機（同一裝置／瀏覽器重開仍保留）。`
+      + `部分品項可依需求增減，鹿仙貝、雨傘等也可現場購買。</div>`;
+
+    sec.innerHTML=html; app.appendChild(sec);
+
+    sec.querySelectorAll("input[data-pk]").forEach(cb=>{
+      cb.addEventListener("change",()=>{
+        const st=loadPacking();
+        if(cb.checked) st[cb.dataset.pk]=1; else delete st[cb.dataset.pk];
+        savePacking(st);
+        cb.closest(".pack-item").classList.toggle("done", cb.checked);
+        updatePackingProgress();
+      });
+    });
+    const rb=sec.querySelector("#packReset");
+    if(rb) rb.addEventListener("click",()=>{
+      if(!confirm("確定要清除所有打包勾選嗎？")) return;
+      savePacking({});
+      sec.querySelectorAll("input[data-pk]").forEach(cb=>{ cb.checked=false; cb.closest(".pack-item").classList.remove("done"); });
+      updatePackingProgress();
+    });
+    updatePackingProgress();
   }
 
   // 建導覽列
