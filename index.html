@@ -95,6 +95,13 @@
   .hero-img .cap{position:relative;z-index:1;color:#fff;padding:16px 18px}
   .hero-img .cap .badge{display:inline-block;background:var(--day,var(--accent));font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 9px;border-radius:7px}
   .hero-img .cap h2{margin:6px 0 0;font-size:22px;font-weight:800;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+  .hero-img .cap .wx{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;line-height:1.4}
+  .hero-img .cap .wx .wx-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .hero-img .cap .wx .wx-ico{font-size:13px}
+  .hero-img .cap .wx .wx-temp b{font-weight:800}
+  .hero-img .cap .wx .wx-temp .lo{opacity:.8;font-weight:600}
+  .hero-img .cap .wx .wx-pop{font-weight:700;opacity:.95}
+  .hero-img .cap .wx.muted{opacity:.85;font-weight:600}
 
   /* Day section */
   section{scroll-margin-top:64px}
@@ -359,6 +366,77 @@ const DAY_COLORS = ["#e8635a","#3b82c4","#4e9e5f","#e6913c","#8a6bbf"]; // D1紅
 const GIFT_COLOR = "#b8893b";
 let PAGES = [];  // [{id,label,sub,today,color}]
 
+/* ---------- 天氣（Open-Meteo，免金鑰） ---------- */
+const TRIP_YEAR = 2026;
+const CITY_GEO = {
+  "大阪": {lat:34.6937, lon:135.5023},
+  "京都": {lat:35.0116, lon:135.7681},
+  "奈良": {lat:34.6851, lon:135.8048},
+};
+let WX_JOBS = [];  // [{id, lat, lon, date}]
+
+/* 依當日標題/重點判斷所在城市，預設大阪 */
+function dayGeo(d){
+  const t = String(d.title||"") + String(d.note||"");
+  if(/京都|嵐山|清水|祇園|渡月|二[年]?年坂|三年坂|八坂|天龍/.test(t)) return CITY_GEO["京都"];
+  if(/奈良/.test(t)) return CITY_GEO["奈良"];
+  return CITY_GEO["大阪"];
+}
+/* "6/6(六)" → "2026-06-06" */
+function tripDate(s){
+  const m = String(s).match(/(\d{1,2})\/(\d{1,2})/); if(!m) return "";
+  return `${TRIP_YEAR}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+}
+/* WMO weather code → [emoji, 文字] */
+function wmoIcon(code){
+  const m = {
+    0:["☀️","晴"],1:["🌤️","晴時多雲"],2:["⛅","多雲"],3:["☁️","陰"],
+    45:["🌫️","霧"],48:["🌫️","霧凇"],
+    51:["🌦️","毛毛雨"],53:["🌦️","毛毛雨"],55:["🌦️","毛毛雨"],
+    56:["🌧️","凍雨"],57:["🌧️","凍雨"],
+    61:["🌧️","小雨"],63:["🌧️","中雨"],65:["🌧️","大雨"],
+    66:["🌧️","凍雨"],67:["🌧️","凍雨"],
+    71:["🌨️","小雪"],73:["🌨️","中雪"],75:["🌨️","大雪"],77:["🌨️","雪粒"],
+    80:["🌦️","陣雨"],81:["🌦️","陣雨"],82:["⛈️","強陣雨"],
+    85:["🌨️","陣雪"],86:["🌨️","陣雪"],
+    95:["⛈️","雷雨"],96:["⛈️","雷雨冰雹"],99:["⛈️","雷雨冰雹"],
+  };
+  return m[code] || ["🌡️","—"];
+}
+/* 逐日抓取並填入 header */
+function loadAllWeather(){
+  WX_JOBS.forEach(job=>{
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${job.lat}&longitude=${job.lon}`
+      + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,uv_index_max,sunrise,sunset`
+      + `&timezone=Asia%2FTokyo&start_date=${job.date}&end_date=${job.date}`;
+    fetch(url).then(r=>r.ok?r.json():Promise.reject()).then(j=>{
+      const dd = j && j.daily;
+      const el = document.getElementById(job.id);
+      if(!el || !dd || !dd.time || !dd.time.length) throw 0;
+      const [ico, txt] = wmoIcon(dd.weather_code[0]);
+      const hi = Math.round(dd.temperature_2m_max[0]);
+      const lo = Math.round(dd.temperature_2m_min[0]);
+      const pop = dd.precipitation_probability_max ? dd.precipitation_probability_max[0] : null;
+      const hhmm = s => String(s||"").slice(11,16);
+      const rise = dd.sunrise ? hhmm(dd.sunrise[0]) : null;
+      const set  = dd.sunset  ? hhmm(dd.sunset[0])  : null;
+      const uv   = dd.uv_index_max ? Math.round(dd.uv_index_max[0]) : null;
+      const psum = dd.precipitation_sum ? dd.precipitation_sum[0] : null;
+      el.classList.remove("muted");
+      el.innerHTML = `<span class="wx-ico">${ico}</span><span>${txt}</span>`
+        + `<span class="wx-temp"><b>${hi}°</b><span class="lo"> / ${lo}°</span></span>`
+        + (pop!=null ? `<span class="wx-pop">☔ ${pop}%</span>` : "")
+        + (rise!=null ? `<span>🌅 ${rise}</span>` : "")
+        + (set!=null  ? `<span>🌇 ${set}</span>`  : "")
+        + (uv!=null   ? `<span>☀️UV ${uv}</span>` : "")
+        + (psum!=null ? `<span>💧 ${psum}mm</span>` : "");
+    }).catch(()=>{
+      const el = document.getElementById(job.id);
+      if(el) el.innerHTML = `<span class="wx-ico">🌡️</span><span>天氣暫無資料</span>`;
+    });
+  });
+}
+
 /* 交通方式 → 圖示 */
 function transIcon(t){
   t = String(t||"");
@@ -447,10 +525,11 @@ function initDayMap(id, spots, color){
   return map;
 }
 
-function heroImg(img, badge, title, badgeColor){
+function heroImg(img, badge, title, badgeColor, weatherId){
   const bg = isUrl(img) ? `background-image:url('${esc(img)}')` : "background:linear-gradient(135deg,#1f6f6b,#15514e)";
   const bc = badgeColor ? ` style="background:${badgeColor}"` : "";
-  return `<div class="hero-img" style="${bg}"><div class="cap"><span class="badge"${bc}>${esc(badge)}</span><h2>${esc(title)}</h2></div></div>`;
+  const wx = weatherId ? `<span class="wx muted" id="${weatherId}"><span class="wx-ico">⛅</span><span>天氣載入中…</span></span>` : "";
+  return `<div class="hero-img" style="${bg}"><div class="cap"><span class="badge"${bc}>${esc(badge)}</span><h2>${esc(title)}</h2>${wx}</div></div>`;
 }
 
 function render(objs){
@@ -459,7 +538,7 @@ function render(objs){
   const app = document.getElementById("app");
   const tabs = document.getElementById("tabs");
   Object.values(leafletMaps).forEach(m=>{ try{ m.remove(); }catch(e){} });
-  dayMaps={}; leafletMaps={};
+  dayMaps={}; leafletMaps={}; WX_JOBS=[];
   app.innerHTML=""; tabs.innerHTML=""; PAGES=[];
 
   // hotel chip
@@ -480,7 +559,10 @@ function render(objs){
 
     const sec=document.createElement("section"); sec.className="page"; sec.id=id;
     sec.style.setProperty("--day", color);
-    let html = heroImg(d.url, `DAY ${idx+1} ・ ${d.day}`, d.title);
+    const wxId = "wx-"+id;
+    const geo = dayGeo(d), date = tripDate(d.day);
+    if(date) WX_JOBS.push({id:wxId, lat:geo.lat, lon:geo.lon, date});
+    let html = heroImg(d.url, `DAY ${idx+1} ・ ${d.day}`, d.title, null, date?wxId:null);
     if(d.note) html += `<div class="summary"><span class="summary-label">本日重點</span>${esc(d.note)}</div>`;
 
     // timeline
@@ -600,6 +682,9 @@ function render(objs){
   const fromHash = location.hash.replace(/^#/,"");
   let start = (PAGES.find(p=>p.id===fromHash)||PAGES.find(p=>p.today)||PAGES[0]||{}).id;
   showPage(start, false);
+
+  // 各日天氣（非同步填入 header）
+  loadAllWeather();
 }
 
 function showPage(id, scroll){
