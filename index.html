@@ -175,12 +175,15 @@
   .map-leaflet{height:340px;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);margin-bottom:8px;background:#e6eaec}
   .map-leaflet .leaflet-tooltip.spot{
     background:#fff;border:1.5px solid var(--day,#e8635a);color:#222;font-weight:700;font-size:12px;
-    border-radius:7px;padding:2px 8px;box-shadow:0 1px 5px rgba(0,0,0,.28);white-space:nowrap
+    border-radius:7px;padding:2px 8px;box-shadow:0 1px 5px rgba(0,0,0,.28);white-space:nowrap;cursor:pointer
   }
   .map-leaflet .leaflet-tooltip.spot.near{border-color:#b8893b;color:#7a5a1f}
   .map-leaflet .leaflet-tooltip.spot::before{display:none}
+  .map-leaflet .leaflet-marker-icon{cursor:pointer}
   .map-legend{font-size:12.5px;color:var(--muted);margin:0 2px 16px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
   .map-legend i{font-style:normal;font-size:14px}
+  .map-legend .legend-locate{cursor:pointer;border-radius:999px;padding:2px 8px;margin:-2px -2px;background:#eaf2ff;border:1px solid #cfe0ff;color:#2b6fd6;font-weight:700}
+  .map-legend .legend-locate:active{background:#d6e8ff}
   .leaflet-bar a.locate-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;font-size:16px;line-height:1;text-decoration:none;background:#fff}
   .leaflet-bar a.locate-btn.on{background:#d6e8ff}
   .map-note{font-size:12.5px;color:var(--accent);background:#fbecea;border-radius:8px;padding:8px 11px;margin-bottom:14px}
@@ -203,6 +206,10 @@
   .pack-item:last-child{border-bottom:0}
   .pack-item input{width:20px;height:20px;flex:0 0 auto;accent-color:var(--day,var(--accent2));cursor:pointer}
   .pack-item.done span{text-decoration:line-through;color:var(--muted)}
+
+  /* 提示 toast */
+  #toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(12px);background:rgba(28,28,28,.93);color:#fff;font-size:13px;font-weight:600;line-height:1.5;padding:10px 16px;border-radius:11px;z-index:9999;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:86%;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   /* 當日地圖（圖片版，選用） */
   .map-card{display:block;position:relative;margin:0 0 10px;border-radius:14px;overflow:hidden;
@@ -573,6 +580,37 @@ function pin(color){
   return L.divIcon({className:"",iconSize:[18,18],iconAnchor:[9,9],
     html:`<span style="display:block;width:14px;height:14px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></span>`});
 }
+/* 輕量提示 toast */
+let _toastTimer=null;
+function toast(msg){
+  let el=document.getElementById("toast");
+  if(!el){ el=document.createElement("div"); el.id="toast"; document.body.appendChild(el); }
+  el.textContent=msg; el.classList.add("show");
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>el.classList.remove("show"), 2400);
+}
+/* 複製文字到剪貼簿（含舊版瀏覽器 fallback） */
+function copyText(t){
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t); return true; } }catch(e){}
+  try{
+    const ta=document.createElement("textarea"); ta.value=t;
+    ta.style.cssText="position:fixed;top:0;left:0;opacity:0"; document.body.appendChild(ta);
+    ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); return true;
+  }catch(e){ return false; }
+}
+/* 點地標：複製名稱並開啟 Google Maps 路線規劃（起點＝目前位置） */
+function openDirections(s){
+  const ok=copyText(s.n);
+  const url=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.lat+","+s.lng)}`;
+  window.open(url, "_blank", "noopener");
+  toast(`${ok?"已複製「"+s.n+"」，":""}開啟 Google 地圖規劃路線 🚶`);
+}
+/* 點圖例藍點：對齊我的位置（未定位則自動開始定位並置中） */
+function centerOnMe(map){
+  if(!map) return;
+  if(map._meMarker){ map.setView(map._meMarker.getLatLng(), Math.max(map.getZoom()||13, 16)); return; }
+  if(map._locateBtn){ toggleLocate(map, map._locateBtn); toast("定位中…取得位置後將自動置中"); }
+}
 /* 「我的位置」藍點圖示 */
 function meIcon(){
   return L.divIcon({className:"",iconSize:[20,20],iconAnchor:[10,10],
@@ -597,6 +635,7 @@ function toggleLocate(map, btn){
     if(!map._meMarker){
       map._meMarker = L.marker(ll,{icon:meIcon(),zIndexOffset:1000}).addTo(map)
         .bindTooltip("我的位置",{direction:"top",className:"spot",offset:[0,-6]});
+      map._meMarker.on("click",()=>map.setView(map._meMarker.getLatLng(), Math.max(map.getZoom()||13, 16)));
       map._meCircle = L.circle(ll,{radius:acc,color:"#2b7cff",weight:1,fillColor:"#2b7cff",fillOpacity:.15}).addTo(map);
     }else{
       map._meMarker.setLatLng(ll); map._meCircle.setLatLng(ll).setRadius(acc);
@@ -617,6 +656,7 @@ function addLocateControl(map){
       a.href="#"; a.title="顯示我的位置"; a.innerHTML="📍";
       L.DomEvent.on(a,"click",function(e){ L.DomEvent.stop(e); toggleLocate(map, a); });
       L.DomEvent.disableClickPropagation(a);
+      map._locateBtn=a;
       return a;
     }
   });
@@ -634,8 +674,10 @@ function initDayMap(id, spots, color){
     {maxZoom:19,subdomains:"abcd",attribution:'&copy; OpenStreetMap、CARTO'}).addTo(map);
   const pts=[];
   spots.forEach(s=>{
-    L.marker([s.lat,s.lng],{icon:pin(s.near?"#b8893b":color)}).addTo(map)
-      .bindTooltip(s.n,{permanent:true,direction:"top",className:"spot"+(s.near?" near":""),offset:[0,-4]});
+    const mk=L.marker([s.lat,s.lng],{icon:pin(s.near?"#b8893b":color),riseOnHover:true}).addTo(map);
+    mk.bindTooltip(s.n,{permanent:true,direction:"top",interactive:true,className:"spot"+(s.near?" near":""),offset:[0,-4]});
+    mk.on("click",()=>openDirections(s));
+    const tt=mk.getTooltip(); if(tt) tt.on("click",()=>openDirections(s));
     pts.push([s.lat,s.lng]);
   });
   if(pts.length) map.fitBounds(pts,{padding:[45,45],maxZoom:15});
@@ -708,8 +750,8 @@ function render(objs){
         html += `<div class="map-leaflet" id="${mid}"></div>`;
         html += `<div class="map-legend"><span><i style="color:${color}">●</i> 今日行程</span>`+
                 `<span><i style="color:#b8893b">●</i> 附近順遊（沒排到）</span>`+
-                `<span><i style="color:#2b7cff">●</i> 我的位置</span>`+
-                `<span>📍 點地圖左上角顯示目前位置・🔍 可縮放拖曳</span></div>`;
+                `<span class="legend-locate" data-map="${mid}" role="button" title="對齊我的位置"><i style="color:#2b7cff">●</i> 我的位置</span>`+
+                `<span>👆 點地標規劃路線・點藍點回到我的位置</span></div>`;
         dayMaps[mid]={spots,color};
       }else{
         html += `<div class="map-note">⚠️ 地圖需連線載入，目前離線無法顯示。</div>`;
@@ -915,6 +957,12 @@ function showPage(id, scroll){
 }
 function goPage(id){ location.hash=id; showPage(id,true); }
 window.addEventListener("hashchange",()=>{ const id=location.hash.replace(/^#/,""); if(id) showPage(id,true); });
+/* 點圖例「我的位置」藍點 → 對齊目前位置（事件委派，一次綁定） */
+document.addEventListener("click",e=>{
+  const el=e.target.closest(".legend-locate"); if(!el) return;
+  e.preventDefault();
+  centerOnMe(leafletMaps[el.dataset.map]);
+});
 
 /* 今日比對：把 6/6(六) 之類正規化成 6/6 */
 function todayKey(){ const d=new Date(); return (d.getMonth()+1)+"/"+d.getDate(); }
